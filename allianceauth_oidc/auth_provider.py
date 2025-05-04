@@ -24,7 +24,9 @@ def _get_additional_claims():
     return out
 
 def token_generator(request):
-    claims = _get_additional_claims()(request)
+    claims = {}
+    for key, value in _get_additional_claims():
+        claims[key] = value(request)
     claims['issuer'] = os.environ.get("AA_OIDC_ISSUER")
     func = tokens.signed_token_generator(os.environ.get("AA_OIDC_RSA_PRIVATE_KEY"), **claims)
     return func(request)
