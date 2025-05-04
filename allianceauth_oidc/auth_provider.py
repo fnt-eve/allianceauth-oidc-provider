@@ -20,5 +20,6 @@ class AllianceAuthOAuth2Validator(OAuth2Validator):
         }
         return out
 
-def token_generator():
-    return tokens.signed_token_generator(os.environ.get("AA_OIDC_RSA_PRIVATE_KEY"), issuer=os.environ.get("AA_OIDC_ISSUER"))
+def token_generator(request):
+    func = tokens.signed_token_generator(os.environ.get("AA_OIDC_RSA_PRIVATE_KEY"), issuer=os.environ.get("AA_OIDC_ISSUER"))
+    return func(request)
