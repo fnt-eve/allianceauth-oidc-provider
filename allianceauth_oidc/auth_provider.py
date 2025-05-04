@@ -1,5 +1,6 @@
+import os
 from oauth2_provider.oauth2_validators import OAuth2Validator
-
+from oauthlib.oauth2.rfc6749 import tokens
 
 class AllianceAuthOAuth2Validator(OAuth2Validator):
     # Extend the standard scopes to add a new "permissions" scope
@@ -18,3 +19,6 @@ class AllianceAuthOAuth2Validator(OAuth2Validator):
             "groups": lambda request: list(request.user.groups.all().values_list('name', flat=True)) + [request.user.profile.state.name]
         }
         return out
+
+def token_generator():
+    return tokens.signed_token_generator(os.environ.get("AA_OIDC_RSA_PRIVATE_KEY"), issuer=os.environ.get("AA_OIDC_ISSUER"))
