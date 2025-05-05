@@ -52,21 +52,31 @@ def to_unicode(data, encoding='UTF-8'):
     return data
 
 def token_generator(request):
-    token = {}
-    for key, value in _get_additional_claims().items():
-        token[key] = value(request)
     now = int(time.time())
     issuer_url = oauth2_settings.oidc_issuer(request)
-    token['iss'] = issuer_url
-    token['aud'] = request.client_id
-    token['iat'] = now
-    token['exp'] = now + request.expires_in
-    token['sub'] = request.user.id
-    token['kid'] = request.client.jwk_key.thumbprint()
-    token['auth_time'] = int(dateformat.format(request.user.last_login, "U")),
-    token['jti'] = str(uuid.uuid4())
+    token = {
+        'iss': issuer_url,
+        'aud': request.client_id,
+        'iat': now,
+        'exp': now + request.expires_in,
+        'sub': request.user.id,
+        'auth_time': int(dateformat.format(request.user.last_login, "U")),
+        'jti': str(uuid.uuid4()),
+    }
 
-    token = jwt.encode(token, oauth2_settings.OIDC_RSA_PRIVATE_KEY, 'RS256')
+    additional_claims = _get_additional_claims()
+    for scope in request.scopes:
+        if scope == 'openid':
+            token['name'] = additional_claims['name'](request)
+
+        if scope == 'email':
+            token['email'] = additional_claims['email'](request)
+
+        if scope == 'profile':
+            token['groups'] = additional_claims['groups'](request)
+
+    headers = {'kid': request.client.jwk_key.thumbprint()}
+    token = jwt.encode(token, oauth2_settings.OIDC_RSA_PRIVATE_KEY, 'RS256', headers=headers)
     token = to_unicode(token, "UTF-8")
 
     return token
