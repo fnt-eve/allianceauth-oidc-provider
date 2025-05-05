@@ -1,9 +1,11 @@
+import base64
 import time
 import uuid
 import jwt
 from django.utils import dateformat, timezone
 from oauth2_provider.oauth2_validators import OAuth2Validator
 from oauth2_provider.settings import oauth2_settings
+from urllib.parse import unquote_plus
 
 class AllianceAuthOAuth2Validator(OAuth2Validator):
     # Extend the standard scopes to add a new "permissions" scope
@@ -54,9 +56,21 @@ def to_unicode(data, encoding='UTF-8'):
 def token_generator(request):
     now = int(time.time())
     issuer_url = oauth2_settings.oidc_issuer(request)
+    aud = request.client_id
+    aud = 'test'
+    if aud == None:
+        basic_auth = _extract_basic_auth(request)
+        if basic_auth is not None:
+            aud = 'none'
+            b64_decoded = base64.b64decode(basic_auth)
+            encoding = request.encoding or 'utf-8'
+            auth_string_decoded = b64_decoded.decode(encoding)
+            client_id = unquote_plus(auth_string_decoded.split(":", -1)[0])
+            aud = client_id
+
     token = {
         'iss': issuer_url,
-        'aud': request.client_id,
+        'aud': aud,
         'iat': now,
         'exp': now + request.expires_in,
         'sub': request.user.id,
@@ -80,3 +94,22 @@ def token_generator(request):
     token = to_unicode(token, "UTF-8")
 
     return token
+
+def _extract_basic_auth(request):
+    """
+    Return authentication string if request contains basic auth credentials,
+    otherwise return None
+    """
+    auth = request.headers.get("HTTP_AUTHORIZATION", None)
+    if not auth:
+        return None
+
+    split = auth.split(" ", 1)
+    if len(split) != 2:
+        return None
+    auth_type, auth_string = split
+
+    if auth_type != "Basic":
+        return None
+
+    return auth_string
