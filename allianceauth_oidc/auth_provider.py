@@ -1,6 +1,9 @@
-import os
+import time
+import uuid
+import jwt
+from django.utils import dateformat, timezone
 from oauth2_provider.oauth2_validators import OAuth2Validator
-from oauthlib.oauth2.rfc6749 import tokens
+from oauth2_provider.settings import oauth2_settings
 
 class AllianceAuthOAuth2Validator(OAuth2Validator):
     # Extend the standard scopes to add a new "permissions" scope
@@ -23,10 +26,47 @@ def _get_additional_claims():
     }
     return out
 
+
+def to_unicode(data, encoding='UTF-8'):
+    """Convert a number of different types of objects to unicode."""
+    if isinstance(data, str):
+        return data
+
+    if isinstance(data, bytes):
+        return str(data, encoding=encoding)
+
+    if hasattr(data, '__iter__'):
+        try:
+            dict(data)
+        except TypeError:
+            pass
+        except ValueError:
+            # Assume it's a one dimensional data structure
+            return (to_unicode(i, encoding) for i in data)
+        else:
+            # We support 2.6 which lacks dict comprehensions
+            if hasattr(data, 'items'):
+                data = data.items()
+            return {to_unicode(k, encoding): to_unicode(v, encoding) for k, v in data}
+
+    return data
+
 def token_generator(request):
-    claims = {}
+    token = {}
     for key, value in _get_additional_claims().items():
-        claims[key] = value(request)
-    claims['issuer'] = os.environ.get("AA_OIDC_ISSUER")
-    func = tokens.signed_token_generator(os.environ.get("AA_OIDC_RSA_PRIVATE_KEY"), **claims)
-    return func(request)
+        token[key] = value(request)
+    now = int(time.time())
+    issuer_url = oauth2_settings.oidc_issuer(request)
+    token['iss'] = issuer_url
+    token['aud'] = request.client_id
+    token['iat'] = now
+    token['exp'] = now + request.expires_in
+    token['sub'] = request.user.id
+    token['kid'] = request.client.jwk_key.thumbprint()
+    token['auth_time'] = int(dateformat.format(request.user.last_login, "U")),
+    token['jti'] = str(uuid.uuid4())
+
+    token = jwt.encode(token, oauth2_settings.OIDC_RSA_PRIVATE_KEY, 'RS256')
+    token = to_unicode(token, "UTF-8")
+
+    return token
