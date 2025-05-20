@@ -22,6 +22,7 @@ def _get_additional_claims():
     out = {
         "name": lambda request: request.user.profile.main_character.character_name,
         "email": lambda request: request.user.email,
+        "groups_all": lambda request: list(request.user.groups.all().values_list('name', flat=True)) + [request.user.profile.state.name],
         "groups": lambda request: list(request.user.groups.all().values_list('name', flat=True)),
         "state": lambda request: request.user.profile.state.name
     }
