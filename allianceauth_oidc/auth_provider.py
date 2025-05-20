@@ -22,9 +22,7 @@ def _get_additional_claims():
     out = {
         "name": lambda request: request.user.profile.main_character.character_name,
         "email": lambda request: request.user.email,
-        "groups": lambda request: list(request.user.groups.all().values_list('name', flat=True)) + [request.user.profile.state.name],
-        "groups_only": lambda request: list(request.user.groups.all().values_list('name', flat=True)),
-        "state": lambda request: request.user.profile.state.name
+        "groups": lambda request: list(request.user.groups.all().values_list('name', flat=True)) + [request.user.profile.state.name]
     }
     return out
 
@@ -77,8 +75,7 @@ def token_generator(request):
             token['email'] = additional_claims['email'](request)
 
         if scope == 'profile':
-            token['groups'] = additional_claims['groups_only'](request)
-            token['state'] = additional_claims['state'](request)
+            token['groups'] = additional_claims['groups'](request)
 
     headers = {'kid': request.client.jwk_key.thumbprint()}
     token = jwt.encode(token, oauth2_settings.OIDC_RSA_PRIVATE_KEY, 'RS256', headers=headers)
